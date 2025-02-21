@@ -42,6 +42,7 @@ void *malloc(size_t size) {
   size = (size + ALIGN - 1) & ~(ALIGN - 1);
   static void *addr = 0;
   if (!addr) addr = heap.start;
+  if (addr + size > heap.end) return NULL;
   void *ret = addr;
   addr += size;
   return ret;

@@ -20,11 +20,11 @@ static void audio_play(void *userdata, uint8_t *stream, int len) {
   if (count < len) nread = count;
   int b = 0;
   while (b < nread) {
-    int n = read(rfd, stream, nread);
+    int n = read(rfd, stream + b, nread - b);
     if (n > 0) b += n;
   }
 
-  count -= nread;
+  if (nread > 0) count -= nread;
   if (len > nread) {
     memset(stream + nread, 0, len - nread);
   }
@@ -33,9 +33,9 @@ static void audio_play(void *userdata, uint8_t *stream, int len) {
 static void audio_write(uint8_t *buf, int len) {
   int nwrite = 0;
   while (nwrite < len) {
-    int n = write(wfd, buf, len);
+    int n = write(wfd, buf + nwrite, len - nwrite);
     if (n == -1) n = 0;
-    count += n;
+    if (n > 0) count += n;
     nwrite += n;
   }
 }

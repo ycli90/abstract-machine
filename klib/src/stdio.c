@@ -28,16 +28,17 @@ static int output_char(char *out, size_t limit, char c, size_t output_count, enu
   return c ? output_count + 1 : output_count;
 }
 
-static int output_int_dec(char *out, size_t limit, long d, bool has_sign, char flag, int width, size_t output_count, enum output_type type) {
-  unsigned long ud = d;
+static int output_int_dec(char *out, size_t limit, long long d, bool has_sign, char flag, int width, size_t output_count, enum output_type type) {
+  unsigned long long ud = d;
   if (has_sign && d < 0) {
     ud = -d;
     output_count = output_char(out, limit, '-', output_count, type);
     if (width > 0) --width;
   }
-  char digits[12];
+  char digits[20];
   int n = 0;
   do {
+    assert(n < 20);
     digits[n] = ud % 10;
     ud /= 10;
     ++n;
@@ -51,10 +52,11 @@ static int output_int_dec(char *out, size_t limit, long d, bool has_sign, char f
   return output_count;
 }
 
-static int output_int_hex(char *out, size_t limit, unsigned long ud, char flag, int width, bool capital, size_t output_count, enum output_type type) {
-  char digits[8];
+static int output_int_hex(char *out, size_t limit, unsigned long long ud, char flag, int width, bool capital, size_t output_count, enum output_type type) {
+  char digits[16];
   int n = 0;
   do {
+    assert(n < 16);
     digits[n] = ud & 0xf;
     ud >>= 4;
     ++n;
@@ -71,6 +73,7 @@ static int output_int_hex(char *out, size_t limit, unsigned long ud, char flag, 
 }
 
 static int output_string(char *out, size_t limit, const char *s, size_t output_count, enum output_type type) {
+  if (s == NULL) return output_count;
   while (*s) {
     output_count = output_char(out, limit, *s, output_count, type);
     ++s;
@@ -82,7 +85,7 @@ static int output_format(char *out, size_t n, const char *fmt, va_list ap, enum 
   bool percent = false;
   char flag = 0;
   int width = 0;
-  bool is_long = false;
+  int flag_long = 0;
   int output_count = 0;
   while (*fmt) {
     if (percent) {
@@ -98,16 +101,18 @@ static int output_format(char *out, size_t n, const char *fmt, va_list ap, enum 
         break;
       }
       case 'd': case 'u': {
-        long d;
-        if (is_long) d = va_arg(ap, long);
+        long long d;
+        if (flag_long == 2) d = va_arg(ap, long long);
+        else if (flag_long == 1) d = va_arg(ap, long);
         else d = va_arg(ap, int);
         output_count = output_int_dec(out, n, d, *fmt == 'd', flag, width, output_count, type);
         percent = false;
         break;
       }
       case 'x': case 'X': {
-        unsigned long ud;
-        if (is_long) ud = va_arg(ap, unsigned long);
+        unsigned long long ud;
+        if (flag_long == 2) ud = va_arg(ap, unsigned long long);
+        else if (flag_long == 1) ud = va_arg(ap, unsigned long);
         else ud = va_arg(ap, unsigned int);
         output_count = output_int_hex(out, n, ud, flag, width, *fmt == 'X', output_count, type);
         percent = false;
@@ -138,7 +143,7 @@ static int output_format(char *out, size_t n, const char *fmt, va_list ap, enum 
         width = width * 10 + *fmt - '0';
         break;
       case 'l':
-        is_long = true;
+        if (flag_long < 2) flag_long++;
         break;
       default:
         char buf[64];
@@ -150,7 +155,7 @@ static int output_format(char *out, size_t n, const char *fmt, va_list ap, enum 
         percent = true;
         flag = 0;
         width = 0;
-        is_long = false;
+        flag_long = 0;
       } else {
         output_count = output_char(out, n, *fmt, output_count, type);
       }
